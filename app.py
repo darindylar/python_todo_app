@@ -1,12 +1,9 @@
 from flask import Flask, render_template, request, redirect, url_for
 import os, json
+import datetime as dt
 
 app = Flask(__name__)
 app.config["TEMPLATES_AUTO_RELOAD"] = True
-
-tasks = [
-    {"task": "Test", "done": False},
-]
 
 DATA_FILE = "tasks.json"
 
@@ -14,9 +11,9 @@ def load_tasks():
     if os.path.exists(DATA_FILE):
         with open(DATA_FILE, "r") as f:
             try:
-                return json.load(f) 
+                return json.load(f)
             except json.JSONDecodeError:
-                return []   
+                return []
     return []
 
 def save_tasks():
@@ -25,16 +22,61 @@ def save_tasks():
 
 tasks = load_tasks()
 
+def parse_due_iso(raw: str | None):
+    """Parse browser datetime-local string like '2025-10-14T18:30' -> datetime (local)."""
+    if not raw:
+        return None
+    try:
+        return dt.datetime.fromisoformat(raw)
+    except ValueError:
+        return None
+
+def humanise_delta(delta: dt.timedelta) -> str:
+    secs = int(abs(delta.total_seconds()))
+    days, rem = divmod(secs, 86400)
+    hours, rem = divmod(rem, 3600)
+    mins, _ = divmod(rem, 60)
+    parts = []
+    if days: parts.append(f"{days}d")
+    if hours: parts.append(f"{hours}h")
+    if mins or not parts: parts.append(f"{mins}m")
+    return " ".join(parts)
+
+def augment_for_view(t: dict) -> dict:
+    out = dict(t)  # shallow copy
+    due_iso = t.get("due")
+    out["due_text"] = ""
+    out["overdue"] = False
+    if due_iso:
+        due_dt = parse_due_iso(due_iso)
+        if due_dt:
+            now = dt.datetime.now()
+            delta = due_dt - now
+            out["overdue"] = delta.total_seconds() < 0
+            out["due_text"] = ("overdue by " if out["overdue"] else "due in ") + humanise_delta(delta)
+    return out
+
 @app.get("/")
 def index():
-    print("Serving /  | templates in:", os.listdir("templates") if os.path.isdir("templates") else "NO templates dir")
-    return render_template("index.html", tasks=tasks)
+    # Provide a default min value for the datetime picker (now)
+    now_str = dt.datetime.now().strftime("%Y-%m-%dT%H:%M")
+
+    tasks_view = [augment_for_view(t) for t in tasks]
+
+    def sort_key(t):
+        return (t.get("done", False),
+                t.get("due") is None,
+                t.get("due") or "9999-12-31T23:59")
+    tasks_view.sort(key=sort_key)
+
+    return render_template("index.html", tasks=tasks_view, now_str=now_str)
 
 @app.post("/add")
 def add():
-    task = request.form.get("task", "").strip()
-    if task:
-        tasks.append({"task": task, "done": False})
+    task_text = request.form.get("task", "").strip()
+    due_iso = request.form.get("due", "").strip() or None  
+    if task_text:
+        tasks.append({"task": task_text, "done": False, "due": due_iso})
         save_tasks()
     return redirect(url_for("index"))
 
