@@ -9,7 +9,15 @@
   <style>
     body { background: #121212; color: #e5e5e5; }
     .task-done { text-decoration: line-through; color: #9aa0a6; }
-    .container { max-width: 650px; margin-top: 50px; }
+    .container { max-width: 720px; margin-top: 50px; }
+
+    .intro-text {
+      text-align: center;
+      font-size: 1rem;
+      color: #b0b0b0;
+      margin-bottom: 1.25rem;
+    }
+
     .form-control {
       min-width: 0;
       background:#1e1e1e;
@@ -20,7 +28,7 @@
       background:#1e1e1e;
       color:#e5e5e5;
       border-color:#555;
-      box-shadow:none;     
+      box-shadow:none;
     }
     .form-select {
       background:#1e1e1e;
@@ -32,12 +40,24 @@
       background:#1e1e1e;
       color:#e5e5e5;
       border-color:#555;
-      box-shadow:none;       
+      box-shadow:none;
     }
     .form-control::placeholder { color:#8a8a8a; }
     .input-group-text { background:#1e1e1e; color:#e5e5e5; border-color:#333; }
     .add-task { min-width: 0; }
     .list-group-item { background:#1a1a1a; color:#f0f0f0; border-color:#2a2a2a; }
+    .card-light {
+      background: #1a1a1a;  
+      border-color: #2a2a2a;
+      box-shadow: 0 0 8px rgba(255,255,255,0.05);
+    }
+    .card-light .card-title {
+      color: #ffffff;
+      text-align: center;
+    }
+    .card-title {
+    color: #ffffff;  
+    }
     .list-group-item.text-muted { color:#cfcfcf !important; }
     .task-item { border-left: 8px solid var(--task-color, #6c757d); }
     .color-dot {
@@ -54,47 +74,80 @@
       background-color:inherit !important;
       color:inherit !important;
     }
+    @media (max-width: 576px) {
+      .intro-text { font-size: 0.95rem; }
+    }
   </style>
 </head>
 <body>
   <div class="container">
-    <h1 class="text-center mb-4">📝 My To-Do List</h1>
+    <h1 class="text-center mb-2">📝 My To-Do List</h1>
+    <p class="intro-text">
+      Choose a colour, due date, and category. Create categories in the box below, and use the filter to focus on what matters.
+    </p>
 
-      <!-- Add Task -->
-  <form action="/add" method="post" class="mb-3">
-    <div class="row g-2 align-items-stretch mb-2">
-      <div class="col-12">
-        <div class="input-group">
-          <span class="input-group-text p-0">
-            <input type="color" name="color"
-                  class="form-control form-control-color border-0"
-                  value="{{ default_color }}" title="Choose colour"
-                  style="width:3.5rem;height:2.5rem;padding:1;border:none;">
-          </span>
-          <input type="text" name="task" class="form-control"
-                placeholder="Add new task..." required>
+    <div class="card mb-4" style="background:#1a1a1a;border-color:#2a2a2a;">
+      <div class="card-body">
+        <div class="row g-2 align-items-stretch">
+          <div class="col-12 col-md-7">
+            <form method="get" class="d-flex gap-2">
+              <select name="filter" class="form-select">
+                <option value="All" {{ "selected" if selected_filter=="All" else "" }}>All categories</option>
+                {% for c in categories %}
+                  <option value="{{ c }}" {{ "selected" if selected_filter==c else "" }}>{{ c }}</option>
+                {% endfor %}
+              </select>
+              <button class="btn btn-secondary" type="submit">Filter</button>
+            </form>
+          </div>
+          <div class="col-12 col-md-5">
+            <form action="/add_category" method="post" class="d-flex gap-2 mt-2 mt-md-0">
+              <input type="text" name="new_category" class="form-control" placeholder="New category…">
+              <button class="btn btn-outline-light" type="submit">Add</button>
+            </form>
+          </div>
         </div>
       </div>
     </div>
 
-    <div class="row g-2 align-items-stretch">
-  <div class="col-12 col-sm-6 col-md-4">
-    <input type="datetime-local" name="due" class="form-control"
-          value="{{ default_due_str }}"  
-          min="{{ now_str }}">
-  </div>
-  <div class="col-12 col-sm-6 col-md-4">
-    <select name="category" class="form-select">
-      {% for c in categories %}
-        <option value="{{ c }}">{{ c }}</option>
-      {% endfor %}
-    </select>
-  </div>
-  <div class="col-12 col-sm-6 col-md-4 d-grid">
-    <button class="btn btn-primary" type="submit">Add</button>
-  </div>
-</div>
-  </form>
+    <div class="card card-light mb-4">
+      <div class="card-body">
+        <h5 class="card-title text-center mb-3">Add a new task</h5>
+        <form action="/add" method="post">
+          <div class="row g-2 align-items-stretch mb-2">
+            <div class="col-12">
+              <div class="input-group">
+                <span class="input-group-text p-0">
+                  <input type="color" name="color"
+                         class="form-control form-control-color border-0"
+                         value="{{ default_color }}" title="Choose colour"
+                         style="width:3.5rem;height:2.5rem;padding:1;border:none;">
+                </span>
+                <input type="text" name="task" class="form-control"
+                       placeholder="What do you want to do?" required>
+              </div>
+            </div>
+          </div>
+
+          <div class="row g-2 align-items-stretch">
+            <div class="col-12 col-sm-6 col-md-4">
+              <input type="datetime-local" name="due" class="form-control"
+                     value="{{ default_due_str }}" min="{{ now_str }}">
+            </div>
+            <div class="col-12 col-sm-6 col-md-4">
+              <select name="category" class="form-select">
+                {% for c in categories %}
+                  <option value="{{ c }}">{{ c }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-12 col-sm-6 col-md-4 d-grid">
+              <button class="btn btn-primary" type="submit">Add Task</button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
 
     <!-- Tasks List -->
     <ul class="list-group">
@@ -115,13 +168,15 @@
           </div>
           <div>
             {% if not t.done %}
-              <a href="/complete/{{ loop.index0 }}" class="btn btn-sm btn-success me-1">✓</a>
+              <a href="/complete/{{ t['_idx'] }}" class="btn btn-sm btn-success me-1">✓</a>
             {% endif %}
-            <a href="/delete/{{ loop.index0 }}" class="btn btn-sm btn-danger">✗</a>
+            <a href="/delete/{{ t['_idx'] }}" class="btn btn-sm btn-danger">✗</a>
           </div>
         </li>
       {% else %}
-        <li class="list-group-item text-center text-muted">No tasks yet!</li>
+        <li class="list-group-item text-center text-muted">
+          No tasks yet. Start by adding your first one above!
+        </li>
       {% endfor %}
     </ul>
   </div>

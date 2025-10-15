@@ -7,7 +7,7 @@ app = Flask(__name__)
 app.config["TEMPLATES_AUTO_RELOAD"] = True
 
 DATA_FILE = "tasks.json"
-CATEGORIES = ["General", "School", "Personal", "Important"]
+CATEGORIES_FILE = "categories.json"
 DEFAULT_COLOR = "#6c757d"  
 
 def _valid_hex(s: str | None) -> bool:
@@ -28,7 +28,34 @@ def save_tasks():
     with open(DATA_FILE, "w") as f:
         json.dump(tasks, f, indent=4)
 
+def load_categories():
+    if os.path.exists(CATEGORIES_FILE):
+        try:
+            with open(CATEGORIES_FILE, "r") as f:
+                cats = json.load(f)
+                if not isinstance(cats, list):
+                    cats = []
+        except json.JSONDecodeError:
+            cats = []
+    else:
+        cats = []
+    if "General" not in cats:
+        cats.append("General")
+    seen = set()
+    deduped = []
+    for c in cats:
+        key = c.strip().lower()
+        if key and key not in seen:
+            seen.add(key)
+            deduped.append(c.strip())
+    return deduped
+
+def save_categories():
+    with open(CATEGORIES_FILE, "w") as f:
+        json.dump(categories, f, indent=4)
+
 tasks = load_tasks()
+categories = load_categories()
 
 def parse_due_iso(raw: str | None):
     """Parse 'YYYY-MM-DDTHH:MM' from <input type=datetime-local> to datetime (local)."""
@@ -52,7 +79,6 @@ def humanise_delta(delta: dt.timedelta) -> str:
 
 def augment_for_view(t: dict) -> dict:
     out = dict(t)
-    # due text / overdue flag
     out["due_text"] = ""
     out["overdue"] = False
     due_iso = t.get("due")
@@ -63,16 +89,15 @@ def augment_for_view(t: dict) -> dict:
             delta = due_dt - now
             out["overdue"] = delta.total_seconds() < 0
             out["due_text"] = ("overdue by " if out["overdue"] else "due in ") + humanise_delta(delta)
-    # colour fallback
     out["color"] = t.get("color") if _valid_hex(t.get("color")) else DEFAULT_COLOR
-    out["category"] = t.get("category") or "General"
+    out["category"] = (t.get("category") or "General").strip() or "General"
     return out
 
 @app.get("/")
 def index():
     now = dt.datetime.now()
     now_str = now.strftime("%Y-%m-%dT%H:%M")
-    default_due_str = (now + dt.timedelta(days=1)).strftime("%Y-%m-%dT%H:%M")  # prefill = tomorrow
+    default_due_str = (now + dt.timedelta(days=1)).strftime("%Y-%m-%dT%H:%M")  
 
     def sort_key(t):
         return (
@@ -82,17 +107,23 @@ def index():
         )
     tasks.sort(key=sort_key)
 
-    tasks_view = [augment_for_view(t) for t in tasks]
+    base_view = [dict(augment_for_view(t), _idx=i) for i, t in enumerate(tasks)]
+
+    selected_filter = request.args.get("filter", "All").strip() or "All"
+    if selected_filter != "All":
+        tasks_view = [t for t in base_view if t.get("category") == selected_filter]
+    else:
+        tasks_view = base_view
 
     return render_template(
         "index.html",
         tasks=tasks_view,
+        categories=categories,
+        selected_filter=selected_filter,
         now_str=now_str,
         default_due_str=default_due_str,
         default_color=DEFAULT_COLOR,
-        categories=CATEGORIES,
     )
-
 
 @app.post("/add")
 def add():
@@ -102,9 +133,31 @@ def add():
         color = request.form.get("color", "").strip()
         if not _valid_hex(color):
             color = DEFAULT_COLOR
-        category = (request.form.get("category", "") or "General").strip()
-        tasks.append({"task": task_text, "done": False, "due": due_iso, "color": color, "category": category})
+        category_sel = (request.form.get("category", "") or "").strip() or "General"
+        if category_sel and category_sel not in categories:
+            categories.append(category_sel)
+            save_categories()
+        tasks.append({
+            "task": task_text,
+            "done": False,
+            "due": due_iso,
+            "color": color,
+            "category": category_sel
+        })
         save_tasks()
+    return redirect(url_for("index"))
+
+@app.post("/add_category")
+def add_category():
+    new_cat = (request.form.get("new_category", "") or "").strip()
+    if new_cat:
+        key = new_cat.lower()
+        if key not in {c.lower() for c in categories}:
+            categories.append(new_cat)
+            save_categories()
+    current_filter = request.args.get("filter")
+    if current_filter:
+        return redirect(url_for("index", filter=current_filter))
     return redirect(url_for("index"))
 
 @app.get("/complete/<int:index>")
