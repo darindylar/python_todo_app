@@ -137,12 +137,20 @@ def add():
         if category_sel and category_sel not in categories:
             categories.append(category_sel)
             save_categories()
+
+        bold = bool(request.form.get("bold"))
+        italic = bool(request.form.get("italic"))
+        underline = bool(request.form.get("underline"))
+
         tasks.append({
             "task": task_text,
             "done": False,
             "due": due_iso,
             "color": color,
-            "category": category_sel
+            "category": category_sel,
+            "bold": bold,
+            "italic": italic,
+            "underline": underline
         })
         save_tasks()
     return redirect(url_for("index"))
@@ -158,6 +166,18 @@ def add_category():
     current_filter = request.args.get("filter")
     if current_filter:
         return redirect(url_for("index", filter=current_filter))
+    return redirect(url_for("index"))
+
+@app.post("/remove_category")
+def remove_category():
+    cat = (request.form.get("remove_category", "") or "").strip()
+    if cat and cat in categories and cat != "General":
+        categories.remove(cat)
+        save_categories()
+        for t in tasks:
+            if t.get("category") == cat:
+                t["category"] = "General"
+        save_tasks()
     return redirect(url_for("index"))
 
 @app.get("/complete/<int:index>")
