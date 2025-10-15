@@ -7,6 +7,7 @@ app = Flask(__name__)
 app.config["TEMPLATES_AUTO_RELOAD"] = True
 
 DATA_FILE = "tasks.json"
+CATEGORIES = ["General", "School", "Personal", "Important"]
 DEFAULT_COLOR = "#6c757d"  
 
 def _valid_hex(s: str | None) -> bool:
@@ -64,6 +65,7 @@ def augment_for_view(t: dict) -> dict:
             out["due_text"] = ("overdue by " if out["overdue"] else "due in ") + humanise_delta(delta)
     # colour fallback
     out["color"] = t.get("color") if _valid_hex(t.get("color")) else DEFAULT_COLOR
+    out["category"] = t.get("category") or "General"
     return out
 
 @app.get("/")
@@ -88,6 +90,7 @@ def index():
         now_str=now_str,
         default_due_str=default_due_str,
         default_color=DEFAULT_COLOR,
+        categories=CATEGORIES,
     )
 
 
@@ -99,7 +102,8 @@ def add():
         color = request.form.get("color", "").strip()
         if not _valid_hex(color):
             color = DEFAULT_COLOR
-        tasks.append({"task": task_text, "done": False, "due": due_iso, "color": color})
+        category = (request.form.get("category", "") or "General").strip()
+        tasks.append({"task": task_text, "done": False, "due": due_iso, "color": color, "category": category})
         save_tasks()
     return redirect(url_for("index"))
 
