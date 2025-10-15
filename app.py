@@ -68,21 +68,19 @@ def augment_for_view(t: dict) -> dict:
 
 @app.get("/")
 def index():
-    # values for the datetime picker
     now = dt.datetime.now()
     now_str = now.strftime("%Y-%m-%dT%H:%M")
     default_due_str = (now + dt.timedelta(days=1)).strftime("%Y-%m-%dT%H:%M")  # prefill = tomorrow
 
-    tasks_view = [augment_for_view(t) for t in tasks]
-
-    # sort: incomplete first, then by due (None at bottom)
     def sort_key(t):
         return (
             t.get("done", False),
             t.get("due") is None,
             t.get("due") or "9999-12-31T23:59",
         )
-    tasks_view.sort(key=sort_key)
+    tasks.sort(key=sort_key)
+
+    tasks_view = [augment_for_view(t) for t in tasks]
 
     return render_template(
         "index.html",
@@ -91,6 +89,7 @@ def index():
         default_due_str=default_due_str,
         default_color=DEFAULT_COLOR,
     )
+
 
 @app.post("/add")
 def add():
