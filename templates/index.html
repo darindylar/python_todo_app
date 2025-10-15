@@ -11,6 +11,7 @@
     .task-done { text-decoration: line-through; color: #808080; }
     .container { max-width: 650px; margin-top: 50px; }
     .form-control { min-width: 0; }
+    .add-task { min-width: 0; }
     .task-item { border-left: 8px solid var(--task-color, #6c757d); }
     .color-dot {
       display:inline-block; width:10px; height:10px; border-radius:50%;
@@ -22,22 +23,34 @@
   <div class="container">
     <h1 class="text-center mb-4">📝 My To-Do List</h1>
 
-    <!-- Add Task -->
-    <form action="/add" method="post" class="row g-2 mb-3 align-items-stretch">
-      <div class="col-12 col-md-2">
-        <input type="color" name="color" class="form-control form-control-color"
-            value="{{ default_color }}" title="Choose colour">
+      <!-- Add Task -->
+  <form action="/add" method="post" class="mb-3">
+    <div class="row g-2 align-items-stretch mb-2">
+      <div class="col-12">
+        <div class="input-group">
+          <span class="input-group-text p-0">
+            <input type="color" name="color"
+                  class="form-control form-control-color border-0"
+                  value="{{ default_color }}" title="Choose colour"
+                  style="width:3.5rem;height:2.5rem;padding:1;border:none;">
+          </span>
+          <input type="text" name="task" class="form-control"
+                placeholder="Add new task..." required>
         </div>
-      <div class="col-12 col-md-7">
-        <input type="text" name="task" class="form-control" placeholder="Add new task and due date/time..." required>
       </div>
-      <div class="col-12 col-md-4">
-        <input type="datetime-local" name="due" class="form-control" min="{{ now_str }}">
+    </div>
+
+    <div class="row g-2 align-items-stretch">
+      <div class="col-12 col-sm-6 col-md-4">
+        <input type="datetime-local" name="due" class="form-control"
+              value="{{ default_due_str }}"  
+              min="{{ now_str }}">
       </div>
-      <div class="col-12 col-md-1 d-grid">
+      <div class="col-auto">
         <button class="btn btn-primary" type="submit">Add</button>
       </div>
-    </form>
+    </div>
+  </form>
 
     <!-- Tasks List -->
     <ul class="list-group">

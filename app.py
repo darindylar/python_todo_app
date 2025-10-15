@@ -7,14 +7,12 @@ app = Flask(__name__)
 app.config["TEMPLATES_AUTO_RELOAD"] = True
 
 DATA_FILE = "tasks.json"
-
-DEFAULT_COLOR = "#6c757d" 
+DEFAULT_COLOR = "#6c757d"  
 
 def _valid_hex(s: str | None) -> bool:
     if not s:
         return False
     return bool(re.fullmatch(r"#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})", s))
-
 
 def load_tasks():
     if os.path.exists(DATA_FILE):
@@ -32,7 +30,7 @@ def save_tasks():
 tasks = load_tasks()
 
 def parse_due_iso(raw: str | None):
-    """Parse browser datetime-local string like '2025-10-14T18:30' -> datetime (local)."""
+    """Parse 'YYYY-MM-DDTHH:MM' from <input type=datetime-local> to datetime (local)."""
     if not raw:
         return None
     try:
@@ -52,10 +50,11 @@ def humanise_delta(delta: dt.timedelta) -> str:
     return " ".join(parts)
 
 def augment_for_view(t: dict) -> dict:
-    out = dict(t)  # shallow copy
-    due_iso = t.get("due")
+    out = dict(t)
+    # due text / overdue flag
     out["due_text"] = ""
     out["overdue"] = False
+    due_iso = t.get("due")
     if due_iso:
         due_dt = parse_due_iso(due_iso)
         if due_dt:
@@ -63,34 +62,40 @@ def augment_for_view(t: dict) -> dict:
             delta = due_dt - now
             out["overdue"] = delta.total_seconds() < 0
             out["due_text"] = ("overdue by " if out["overdue"] else "due in ") + humanise_delta(delta)
+    # colour fallback
     out["color"] = t.get("color") if _valid_hex(t.get("color")) else DEFAULT_COLOR
     return out
 
 @app.get("/")
 def index():
-    # Provide a default min value for the datetime picker (now)
-    now_str = dt.datetime.now().strftime("%Y-%m-%dT%H:%M")
+    # values for the datetime picker
+    now = dt.datetime.now()
+    now_str = now.strftime("%Y-%m-%dT%H:%M")
+    default_due_str = (now + dt.timedelta(days=1)).strftime("%Y-%m-%dT%H:%M")  # prefill = tomorrow
 
     tasks_view = [augment_for_view(t) for t in tasks]
 
+    # sort: incomplete first, then by due (None at bottom)
     def sort_key(t):
-        return (t.get("done", False),
-                t.get("due") is None,
-                t.get("due") or "9999-12-31T23:59")
+        return (
+            t.get("done", False),
+            t.get("due") is None,
+            t.get("due") or "9999-12-31T23:59",
+        )
     tasks_view.sort(key=sort_key)
 
     return render_template(
-    "index.html",
-    tasks=tasks_view,
-    now_str=now_str,
-    default_color=DEFAULT_COLOR
+        "index.html",
+        tasks=tasks_view,
+        now_str=now_str,
+        default_due_str=default_due_str,
+        default_color=DEFAULT_COLOR,
     )
-
 
 @app.post("/add")
 def add():
     task_text = request.form.get("task", "").strip()
-    due_iso = request.form.get("due", "").strip() or None  
+    due_iso = request.form.get("due", "").strip() or None
     if task_text:
         color = request.form.get("color", "").strip()
         if not _valid_hex(color):
