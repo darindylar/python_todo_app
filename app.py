@@ -1,11 +1,20 @@
 from flask import Flask, render_template, request, redirect, url_for
 import os, json
 import datetime as dt
+import re
 
 app = Flask(__name__)
 app.config["TEMPLATES_AUTO_RELOAD"] = True
 
 DATA_FILE = "tasks.json"
+
+DEFAULT_COLOR = "#6c757d" 
+
+def _valid_hex(s: str | None) -> bool:
+    if not s:
+        return False
+    return bool(re.fullmatch(r"#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})", s))
+
 
 def load_tasks():
     if os.path.exists(DATA_FILE):
@@ -54,6 +63,7 @@ def augment_for_view(t: dict) -> dict:
             delta = due_dt - now
             out["overdue"] = delta.total_seconds() < 0
             out["due_text"] = ("overdue by " if out["overdue"] else "due in ") + humanise_delta(delta)
+    out["color"] = t.get("color") if _valid_hex(t.get("color")) else DEFAULT_COLOR
     return out
 
 @app.get("/")
@@ -69,14 +79,23 @@ def index():
                 t.get("due") or "9999-12-31T23:59")
     tasks_view.sort(key=sort_key)
 
-    return render_template("index.html", tasks=tasks_view, now_str=now_str)
+    return render_template(
+    "index.html",
+    tasks=tasks_view,
+    now_str=now_str,
+    default_color=DEFAULT_COLOR
+    )
+
 
 @app.post("/add")
 def add():
     task_text = request.form.get("task", "").strip()
     due_iso = request.form.get("due", "").strip() or None  
     if task_text:
-        tasks.append({"task": task_text, "done": False, "due": due_iso})
+        color = request.form.get("color", "").strip()
+        if not _valid_hex(color):
+            color = DEFAULT_COLOR
+        tasks.append({"task": task_text, "done": False, "due": due_iso, "color": color})
         save_tasks()
     return redirect(url_for("index"))
 

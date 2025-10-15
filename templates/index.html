@@ -10,9 +10,12 @@
     body { background: #dedede; }
     .task-done { text-decoration: line-through; color: #808080; }
     .container { max-width: 650px; margin-top: 50px; }
-
-    /* keep inputs well-behaved inside flex/grid */
     .form-control { min-width: 0; }
+    .task-item { border-left: 8px solid var(--task-color, #6c757d); }
+    .color-dot {
+      display:inline-block; width:10px; height:10px; border-radius:50%;
+      margin-right:6px; vertical-align:middle;
+    }
   </style>
 </head>
 <body>
@@ -21,11 +24,14 @@
 
     <!-- Add Task -->
     <form action="/add" method="post" class="row g-2 mb-3 align-items-stretch">
+      <div class="col-12 col-md-2">
+        <input type="color" name="color" class="form-control form-control-color"
+            value="{{ default_color }}" title="Choose colour">
+        </div>
       <div class="col-12 col-md-7">
         <input type="text" name="task" class="form-control" placeholder="Add new task and due date/time..." required>
       </div>
       <div class="col-12 col-md-4">
-        <!-- Wider column (4) so the picker has more space -->
         <input type="datetime-local" name="due" class="form-control" min="{{ now_str }}">
       </div>
       <div class="col-12 col-md-1 d-grid">
@@ -36,9 +42,11 @@
     <!-- Tasks List -->
     <ul class="list-group">
       {% for t in tasks %}
-        <li class="list-group-item d-flex justify-content-between align-items-center">
+        <li class="list-group-item d-flex justify-content-between align-items-center task-item"
+            style="--task-color: {{ t['color'] }};">
           <div>
             <span class="{% if t.done %}task-done{% endif %}">
+              <span class="color-dot" style="background-color: {{ t['color'] }};"></span>
               {{ t["task"] }}
             </span>
             {% if t["due_text"] %}
